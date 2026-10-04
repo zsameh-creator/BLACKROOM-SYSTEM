@@ -30,20 +30,19 @@ export default function App() {
       paymentMethods: ['كاش (Cash)', 'فودافون كاش', 'إنستا باي']
     };
   });
-  const [newPayment, setNewPayment] = useState('');
 
   useEffect(() => {
     localStorage.setItem('ps_settings', JSON.stringify(settings));
   }, [settings]);
 
-  // 4. أجهزة البلايستيشن (مدعومة بحالة الصيانة والنشط وحفظها محلياً)
+  // 4. أجهزة البلايستيشن
   const [devices, setDevices] = useState(() => {
     const saved = localStorage.getItem('ps_devices_db');
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'PS5 - 01', type: 'Single', status: 'available', deviceStatus: 'active', seconds: 0, items: [] },
-      { id: 2, name: 'PS5 - 02', type: 'Multi', status: 'available', deviceStatus: 'active', seconds: 0, items: [] },
-      { id: 3, name: 'PS4 - 03', type: 'Single', status: 'available', deviceStatus: 'active', seconds: 0, items: [] },
-      { id: 4, name: 'PS5 - 04', type: 'Multi', status: 'available', deviceStatus: 'maintenance', seconds: 0, items: [] },
+      { id: 1, name: 'PS5 - 01', type: 'Single', status: 'available', seconds: 0, items: [] },
+      { id: 2, name: 'PS5 - 02', type: 'Multi', status: 'available', seconds: 0, items: [] },
+      { id: 3, name: 'PS4 - 03', type: 'Single', status: 'available', seconds: 0, items: [] },
+      { id: 4, name: 'PS5 - 04', type: 'Multi', status: 'available', seconds: 0, items: [] },
     ];
   });
 
@@ -51,9 +50,14 @@ export default function App() {
     localStorage.setItem('ps_devices_db', JSON.stringify(devices));
   }, [devices]);
 
-  // حالات إدارة الأجهزة من الإعدادات
-  const [newDeviceName, setNewDeviceName] = useState('');
-  const [newDeviceType, setNewDeviceType] = useState('Single');
+  // إعدادات إدارة الأجهزة الجديدة في صفحة الإعدادات
+  const [newDevName, setNewDevName] = useState('');
+  const [newDevType, setNewDevType] = useState('Single');
+  const [newDevStatus, setNewDevStatus] = useState('available');
+  const [editingDeviceId, setEditingDeviceId] = useState(null);
+  const [editDevName, setEditDevName] = useState('');
+  const [editDevType, setEditDevType] = useState('Single');
+  const [editDevStatus, setEditDevStatus] = useState('available');
 
   // 5. المنتجات والمشاريب
   const [products, setProducts] = useState([
@@ -61,8 +65,6 @@ export default function App() {
     { id: 2, name: 'مياه معدنية (Water)', price: 10 },
     { id: 3, name: 'شاي (Tea)', price: 12 }
   ]);
-  const [newProdName, setNewProdName] = useState('');
-  const [newProdPrice, setNewProdPrice] = useState('');
 
   // 6. النوافذ المؤقتة والمعاينة (Checkout & Preview)
   const [checkoutDevice, setCheckoutDevice] = useState(null);
@@ -75,11 +77,32 @@ export default function App() {
   const [selectedStartType, setSelectedStartType] = useState('Single');
 
   // 7. الوردية الحالية والمصروفات والأرشيف
-  const [shiftInvoices, setShiftInvoices] = useState([]);
-  const [shiftNumber, setShiftNumber] = useState(1);
-  const [expenses, setExpenses] = useState([]);
+  const [shiftInvoices, setShiftInvoices] = useState(() => {
+    const saved = localStorage.getItem('ps_shift_invoices');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [shiftNumber, setShiftNumber] = useState(() => {
+    const saved = localStorage.getItem('ps_shift_number');
+    return saved ? JSON.parse(saved) : 1;
+  });
+  const [expenses, setExpenses] = useState(() => {
+    const saved = localStorage.getItem('ps_expenses');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [expTitle, setExpTitle] = useState('');
   const [expAmount, setExpAmount] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('ps_shift_invoices', JSON.stringify(shiftInvoices));
+  }, [shiftInvoices]);
+
+  useEffect(() => {
+    localStorage.setItem('ps_shift_number', JSON.stringify(shiftNumber));
+  }, [shiftNumber]);
+
+  useEffect(() => {
+    localStorage.setItem('ps_expenses', JSON.stringify(expenses));
+  }, [expenses]);
 
   const [archivedShifts, setArchivedShifts] = useState(() => {
     const saved = localStorage.getItem('ps_archived_shifts');
@@ -100,11 +123,6 @@ export default function App() {
   const [newPerms, setNewPerms] = useState({
     ps: true, drinks: true, expenses: true, shift: true, archive: true, users: false, settings: false
   });
-
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState('user');
-  const [editPerms, setEditPerms] = useState({});
 
   // العداد التلقائي
   useEffect(() => {
@@ -234,44 +252,80 @@ export default function App() {
     setShiftNumber(prev => prev + 1);
   };
 
+  const handleAddUser = (e) => {
+    e.preventDefault();
+    if (!newUsername || !newPassword || !newFullName) return;
+    if (usersList.some(u => u.username === newUsername)) {
+      alert('اسم المستخدم موجود مسبقاً!');
+      return;
+    }
+    const newUser = {
+      id: Date.now(),
+      username: newUsername,
+      password: newPassword,
+      fullName: newFullName,
+      role: newRole,
+      permissions: newRole === 'admin' ? { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true } : newPerms
+    };
+    setUsersList([...usersList, newUser]);
+    setNewUsername('');
+    setNewPassword('');
+    setNewFullName('');
+    setNewRole('user');
+    alert('تم إضافة المستخدم وصلاحياته بنجاح!');
+  };
+
+  const handleDeleteUser = (id) => {
+    if (usersList.length <= 1) {
+      alert('لا يمكن حذف كل المستخدمين!');
+      return;
+    }
+    if (usersList.find(u => u.id === id)?.username === 'zead') {
+      alert('لا يمكن حذف حساب الأدمن الأساسي!');
+      return;
+    }
+    setUsersList(usersList.filter(u => u.id !== id));
+  };
+
+  // إدارة أجهزة البلايستيشن من الإعدادات (إضافة، تعديل، حذف)
   const handleAddDevice = (e) => {
     e.preventDefault();
-    if (!newDeviceName.trim()) return;
-    const newDev = {
+    if (!newDevName) return;
+    const newDevice = {
       id: Date.now(),
-      name: newDeviceName.trim(),
-      type: newDeviceType,
-      status: 'available',
-      deviceStatus: 'active',
+      name: newDevName,
+      type: newDevType,
+      status: newDevStatus,
       seconds: 0,
       items: []
     };
-    setDevices([...devices, newDev]);
-    setNewDeviceName('');
+    setDevices([...devices, newDevice]);
+    setNewDevName('');
     alert('تم إضافة الجهاز بنجاح!');
   };
 
-  const handleToggleDeviceMaintenance = (id) => {
+  const handleDeleteDevice = (id) => {
+    if (devices.length <= 1) {
+      alert('لا يمكن حذف كل الأجهزة!');
+      return;
+    }
+    setDevices(devices.filter(d => d.id !== id));
+  };
+
+  const handleUpdateDevice = (id) => {
     setDevices(devices.map(d => {
       if (d.id === id) {
-        const nextStatus = d.deviceStatus === 'active' ? 'maintenance' : 'active';
-        return { ...d, deviceStatus: nextStatus };
+        return {
+          ...d,
+          name: editDevName || d.name,
+          type: editDevType,
+          status: editDevStatus
+        };
       }
       return d;
     }));
-  };
-
-  const handleRenameDevice = (id) => {
-    const dev = devices.find(d => d.id === id);
-    const newName = prompt('أدخل الاسم الجديد للجهاز:', dev ? dev.name : '');
-    if (!newName || !newName.trim()) return;
-    setDevices(devices.map(d => d.id === id ? { ...d, name: newName.trim() } : d));
-  };
-
-  const handleDeleteDevice = (id) => {
-    if (confirm('هل أنت متأكد من حذف هذا الجهاز؟')) {
-      setDevices(devices.filter(d => d.id !== id));
-    }
+    setEditingDeviceId(null);
+    alert('تم تحديث بيانات الجهاز بنجاح!');
   };
 
   const totalRevenue = shiftInvoices.reduce((s, inv) => s + inv.total, 0);
@@ -281,6 +335,25 @@ export default function App() {
   const totalDevicesCount = devices.length;
   const busyDevicesCount = devices.filter(d => d.status === 'busy').length;
   const availableDevicesCount = devices.filter(d => d.status === 'available').length;
+  const maintenanceDevicesCount = devices.filter(d => d.status === 'maintenance').length;
+
+  const revenueByPayment = settings.paymentMethods.reduce((acc, method) => {
+    acc[method] = shiftInvoices
+      .filter(inv => inv.paymentMethod === method)
+      .reduce((sum, inv) => sum + inv.total, 0);
+    return acc;
+  }, {});
+
+  const filteredShifts = archivedShifts.filter(sh => {
+    if (!fromDate && !toDate) return true;
+    if (fromDate && !toDate) return sh.date >= fromDate;
+    if (!fromDate && toDate) return sh.date <= toDate;
+    return sh.date >= fromDate && sh.date <= toDate;
+  });
+
+  const filteredTotalRev = filteredShifts.reduce((s, sh) => s + sh.totalRevenue, 0);
+  const filteredTotalExp = filteredShifts.reduce((s, sh) => s + sh.totalExpenses, 0);
+  const filteredNetRev = filteredShifts.reduce((s, sh) => s + sh.netRevenue, 0);
 
   if (!currentUser) {
     return (
@@ -343,16 +416,16 @@ export default function App() {
               📊 تقرير الوردية الحالي
             </button>
             <button onClick={() => setActiveTab('archive')} style={{ padding: '12px 15px', background: activeTab === 'archive' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'archive' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-              📂 الأرشيف والتقارير المخصصة
+              📂 الأرشيف والتقارير
             </button>
 
             {currentUser.role === 'admin' && (
               <>
                 <button onClick={() => setActiveTab('users')} style={{ padding: '12px 15px', background: activeTab === 'users' ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'transparent', color: '#fff', border: activeTab === 'users' ? '1px solid rgba(168,85,247,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-                  👥 إدارة المستخدمين والصلاحيات
+                  👥 إدارة المستخدمين
                 </button>
                 <button onClick={() => setActiveTab('settings')} style={{ padding: '12px 15px', background: activeTab === 'settings' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'settings' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-                  ⚙️ الإعدادات العامة (أدمن)
+                  ⚙️ الإعدادات العامة والأجهزة
                 </button>
               </>
             )}
@@ -380,48 +453,54 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '25px' }}>
               <div>
                 <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>إدارة أجهزة البلايستيشن</h1>
-                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>ابدأ الجلسات وتحكم في الأجهزة بسهولة</p>
+                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>تحكم في الجلسات والأجهزة بكل سهولة</p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <div className="neon-card" style={{ padding: '10px 18px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(34,197,94,0.4)' }}>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>الأجهزة المتاحة</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>المتاحة</div>
                   <div style={{ fontSize: '18px', fontWeight: '900', color: '#22c55e' }}>{availableDevicesCount}</div>
                 </div>
                 <div className="neon-card" style={{ padding: '10px 18px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(56,189,248,0.4)' }}>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>الأجهزة المشغولة</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>المشغولة</div>
                   <div style={{ fontSize: '18px', fontWeight: '900', color: '#38bdf8' }}>{busyDevicesCount}</div>
                 </div>
-                <div className="neon-card" style={{ padding: '10px 18px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(168,85,247,0.4)' }}>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>إجمالي الأجهزة</div>
-                  <div style={{ fontSize: '18px', fontWeight: '900', color: '#c084fc' }}>{totalDevicesCount}</div>
+                <div className="neon-card" style={{ padding: '10px 18px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(239,68,68,0.4)' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>في الصيانة</div>
+                  <div style={{ fontSize: '18px', fontWeight: '900', color: '#ef4444' }}>{maintenanceDevicesCount}</div>
                 </div>
               </div>
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
               {devices.map(dev => {
-                if (dev.deviceStatus === 'maintenance') {
-                  return (
-                    <div key={dev.id} className="neon-card" style={{ padding: '22px', borderRadius: '20px', border: '1px solid rgba(234,179,8,0.4)', opacity: 0.85, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#fff' }}>{dev.name}</h3>
-                          <span style={{ padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', background: 'rgba(234,179,8,0.2)', color: '#eab308', border: '1px solid rgba(234,179,8,0.4)' }}>
-                            🛠️ في صيانة
-                          </span>
-                        </div>
-                        <p style={{ color: '#eab308', fontSize: '14px', margin: '20px 0', textAlign: 'center' }}>هذا الجهاز متوقف حالياً للصيانة من الإعدادات</p>
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>يمكنك إعادة تفعيله من قسم الإعدادات العامة</div>
-                    </div>
-                  );
-                }
-
                 const pricePerHour = dev.type === 'Single' ? settings.singlePrice : settings.multiPrice;
                 const timeCost = Math.round((dev.seconds / 3600) * pricePerHour);
                 const itemsCost = dev.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
                 const currentTotal = timeCost + itemsCost;
+
+                if (dev.status === 'maintenance') {
+                  return (
+                    <div key={dev.id} className="neon-card" style={{ padding: '22px', borderRadius: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.03)' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#fff' }}>{dev.name}</h3>
+                          <span style={{ padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)' }}>
+                            🔧 في الصيانة
+                          </span>
+                        </div>
+                        <p style={{ color: '#94a3b8', fontSize: '14px', textAlign: 'center', margin: '30px 0' }}>الجهاز متوقف حالياً للصيانة الفنية.</p>
+                      </div>
+                      {currentUser.role === 'admin' && (
+                        <button onClick={() => {
+                          setDevices(devices.map(d => d.id === dev.id ? { ...d, status: 'available' } : d));
+                        }} style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          إعادة للخدمة ✅
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
 
                 return (
                   <div key={dev.id} className="neon-card" style={{ padding: '22px', borderRadius: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: dev.status === 'busy' ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(34,197,94,0.3)' }}>
@@ -465,18 +544,80 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'drinks' && (
+        {/* إعدادات النظام وأجهزة البلايستيشن */}
+        {activeTab === 'settings' && currentUser.role === 'admin' && (
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>مبيعات المشاريب والمنتجات</h1>
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', color: '#38bdf8', marginBottom: '15px' }}>قائمة المنتجات المتاحة</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
-                {products.map(prod => (
-                  <div key={prod.id} style={{ background: '#020408', padding: '15px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{prod.name}</div>
-                      <div style={{ color: '#22c55e', fontWeight: '900', marginTop: '5px' }}>{prod.price} ج.م</div>
-                    </div>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>⚙️ الإعدادات العامة وإدارة الأجهزة</h1>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              {/* تعديل أسعار الساعة */}
+              <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+                <h3 style={{ fontSize: '16px', color: '#38bdf8', marginBottom: '15px' }}>💰 تعديل أسعار الساعة</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>سعر السنجل (ج.م / ساعة)</label>
+                    <input type="number" value={settings.singlePrice} onChange={e=>setSettings({...settings, singlePrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>سعر الملتي (ج.م / ساعة)</label>
+                    <input type="number" value={settings.multiPrice} onChange={e=>setSettings({...settings, multiPrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* إضافة جهاز بلايستيشن جديد */}
+              <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+                <h3 style={{ fontSize: '16px', color: '#38bdf8', marginBottom: '15px' }}>🎮 إضافة جهاز بلايستيشن جديد</h3>
+                <form onSubmit={handleAddDevice} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input type="text" value={newDevName} onChange={e=>setNewDevName(e.target.value)} placeholder="اسم الجهاز (مثال: PS5 - 05)" style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+                  <select value={newDevType} onChange={e=>setNewDevType(e.target.value)} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
+                    <option value="Single">سنجل (Single)</option>
+                    <option value="Multi">ملتي (Multi)</option>
+                  </select>
+                  <select value={newDevStatus} onChange={e=>setNewDevStatus(e.target.value)} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
+                    <option value="available">متاح للعمل</option>
+                    <option value="maintenance">في الصيانة 🔧</option>
+                  </select>
+                  <button type="submit" style={{ padding: '12px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إضافة الجهاز 🚀</button>
+                </form>
+              </div>
+            </div>
+
+            {/* قائمة وتعديل الأجهزة (حذف، تعديل حالة الصيانة أو الاسم) */}
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>إدارة وتعديل أجهزة البلايستيشن الحالية</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {devices.map(d => (
+                  <div key={d.id} style={{ background: '#020408', padding: '18px', borderRadius: '14px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                    {editingDeviceId === d.id ? (
+                      <div style={{ display: 'flex', gap: '10px', flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <input type="text" defaultValue={d.name} onChange={e=>setEditDevName(e.target.value)} placeholder="اسم الجهاز" style={{ padding: '8px', background: '#03050a', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px' }} />
+                        <select defaultValue={d.type} onChange={e=>setEditDevType(e.target.value)} style={{ padding: '8px', background: '#03050a', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px' }}>
+                          <option value="Single">سنجل</option>
+                          <option value="Multi">ملتي</option>
+                        </select>
+                        <select defaultValue={d.status} onChange={e=>setEditDevStatus(e.target.value)} style={{ padding: '8px', background: '#03050a', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px' }}>
+                          <option value="available">شغال / متاح</option>
+                          <option value="maintenance">في الصيانة 🔧</option>
+                        </select>
+                        <button onClick={() => handleUpdateDevice(d.id)} style={{ padding: '8px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ</button>
+                        <button onClick={() => setEditingDeviceId(null)} style={{ padding: '8px 15px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <h4 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>{d.name}</h4>
+                          <span style={{ fontSize: '12px', color: '#38bdf8' }}>({d.type === 'Single' ? 'سنجل' : 'ملتي'})</span>
+                          <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', background: d.status === 'maintenance' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)', color: d.status === 'maintenance' ? '#ef4444' : '#22c55e' }}>
+                            {d.status === 'maintenance' ? 'في الصيانة 🔧' : 'شغال / متاح ✅'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button onClick={() => { setEditingDeviceId(d.id); setEditDevName(d.name); setEditDevType(d.type); setEditDevStatus(d.status); }} style={{ padding: '8px 15px', background: 'rgba(56,189,248,0.2)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.4)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>تعديل</button>
+                          <button onClick={() => handleDeleteDevice(d.id)} style={{ padding: '8px 15px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>حذف</button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -484,96 +625,37 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'expenses' && (
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>إدارة المصروفات</h1>
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', marginBottom: '25px' }}>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!expTitle.trim() || !expAmount) return;
-                setExpenses([...expenses, { id: Date.now(), title: expTitle.trim(), amount: Number(expAmount), time: new Date().toLocaleTimeString('ar-EG') }]);
-                setExpTitle('');
-                setExpAmount('');
-              }} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                <input type="text" placeholder="بيان المصروف (مثال: شراء فحم، صيانة)" value={expTitle} onChange={e=>setExpTitle(e.target.value)} style={{ flex: 1, minWidth: '200px', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
-                <input type="number" placeholder="المبلغ (ج.م)" value={expAmount} onChange={e=>setExpAmount(e.target.value)} style={{ width: '130px', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
-                <button type="submit" style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إضافة مصروف 💸</button>
-              </form>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {expenses.length === 0 ? (
-                  <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>لا توجد مصروفات مسجلة في هذه الوردية</p>
-                ) : (
-                  expenses.map(ex => (
-                    <div key={ex.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#020408', padding: '12px 18px', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)' }}>
-                      <div>
-                        <span style={{ fontWeight: 'bold' }}>{ex.title}</span>
-                        <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '10px' }}>({ex.time})</span>
-                      </div>
-                      <span style={{ color: '#ef4444', fontWeight: '900' }}>- {ex.amount} ج.م</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'shift' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h1 style={{ fontSize: '28px', fontWeight: '900' }}>تقرير الوردية الحالي (وردية رقم {shiftNumber})</h1>
-              <button onClick={closeShift} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 0 15px rgba(220,38,38,0.4)' }}>
-                🔒 إغلاق وأرشفة الوردية
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي الإيرادات</div>
-                <div style={{ color: '#22c55e', fontSize: '24px', fontWeight: '900', marginTop: '5px' }}>{totalRevenue} ج.م</div>
-              </div>
-              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي المصروفات</div>
-                <div style={{ color: '#ef4444', fontSize: '24px', fontWeight: '900', marginTop: '5px' }}>{totalExpenses} ج.م</div>
-              </div>
-              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px' }}>صافي الخزنة</div>
-                <div style={{ color: '#38bdf8', fontSize: '24px', fontWeight: '900', marginTop: '5px' }}>{netRevenue} ج.م</div>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
 
-      {/* نوافذ الحوار (Modals) المؤقتة */}
+      {/* نوافذ الحوار وبدء الجلسات */}
       {startingDeviceModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
           <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '380px', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px' }}>بدء جلسة لـ {startingDeviceModal.name}</h3>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '10px' }}>بدء جلسة لـ {startingDeviceModal.name}</h3>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>اختر نوع اللعب لبدء العداد:</p>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
               <button onClick={() => setSelectedStartType('Single')} style={{ flex: 1, padding: '12px', background: selectedStartType === 'Single' ? '#0284c7' : '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.4)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>سنجل 👤</button>
               <button onClick={() => setSelectedStartType('Multi')} style={{ flex: 1, padding: '12px', background: selectedStartType === 'Multi' ? '#0284c7' : '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.4)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>ملتي 👥</button>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={confirmStartSession} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد البدء</button>
+              <button onClick={confirmStartSession} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد البدء 🚀</button>
               <button onClick={() => setStartingDeviceModal(null)} style={{ flex: 1, padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* نافذة إضافة منتج لجهاز */}
       {addingItemDevice && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
-          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '400px' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center' }}>إضافة منتج إلى {addingItemDevice.name}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto', marginBottom: '20px' }}>
-              {products.map(prod => (
-                <div key={prod.id} onClick={() => addProductToDevice(addingItemDevice.id, prod)} style={{ background: '#020408', padding: '12px 15px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                  <span style={{ fontWeight: 'bold' }}>{prod.name}</span>
-                  <span style={{ color: '#22c55e', fontWeight: '900' }}>{prod.price} ج.م</span>
-                </div>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px' }}>إضافة منتج لـ {addingItemDevice.name}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {products.map(p => (
+                <button key={p.id} onClick={() => addProductToDevice(addingItemDevice.id, p)} style={{ padding: '12px', background: '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <span>{p.name}</span>
+                  <span style={{ color: '#22c55e' }}>{p.price} ج.م</span>
+                </button>
               ))}
             </div>
             <button onClick={() => setAddingItemDevice(null)} style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إغلاق</button>
@@ -581,23 +663,63 @@ export default function App() {
         </div>
       )}
 
+      {/* نافذة معاينة الفاتورة ودفع الحساب */}
       {showPreviewModal && checkoutDevice && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
-          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '420px' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center' }}>فاتورة جهاز: {checkoutDevice.name}</h3>
-            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '20px', fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>مدة الجلسة:</span> <span style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{formatTime(checkoutDevice.seconds)}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>حساب الوقت:</span> <span style={{ color: '#22c55e' }}>{Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>حساب المنتجات:</span> <span style={{ color: '#22c55e' }}>{checkoutDevice.items.reduce((s, i) => s + (i.price * i.qty), 0)} ج.م</span></div>
-              <hr style={{ borderColor: 'rgba(56,189,248,0.2)', margin: '5px 0' }} />
-              <div>
-                <label style={{ fontSize: '12px', color: '#38bdf8', display: 'block', marginBottom: '5px' }}>خصم (إن وجد):</label>
-                <input type="number" placeholder="قيمة الخصم" value={discountAmount} onChange={e => setDiscountAmount(e.target.value)} style={{ width: '100%', padding: '8px', background: '#05070f', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px', outline: 'none' }} />
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px' }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>🧾 فاتورة الحساب النهائية</h3>
+            
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>الجهاز:</span>
+                <strong>{checkoutDevice.name} ({checkoutDevice.type === 'Single' ? 'سنجل' : 'ملتي'})</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>وقت اللعب:</span>
+                <strong style={{ fontFamily: 'monospace' }}>{formatTime(checkoutDevice.seconds)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>تكلفة الوقت:</span>
+                <strong style={{ color: '#22c55e' }}>{Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</strong>
               </div>
             </div>
+
+            {checkoutDevice.items.length > 0 && (
+              <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                <h4 style={{ fontSize: '14px', color: '#38bdf8', marginBottom: '8px' }}>المشاريب والطلبات:</h4>
+                {checkoutDevice.items.map(item => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+                    <span>{item.name} (×{item.qty})</span>
+                    <span>{item.price * item.qty} ج.م</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#38bdf8', marginBottom: '5px' }}>خصم (ج.م) - اختياري</label>
+              <input type="number" value={discountAmount} onChange={e=>setDiscountAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#38bdf8', marginBottom: '5px' }}>طريقة الدفع</label>
+              <select value={selectedPaymentMethod} onChange={e=>setSelectedPaymentMethod(e.target.value)} style={{ width: '100%', padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
+                {settings.paymentMethods.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(34,197,94,0.3)' }}>
+              <span style={{ fontSize: '14px', color: '#94a3b8' }}>المبلغ الإجمالي المستحق:</span>
+              <div style={{ fontSize: '26px', fontWeight: '900', color: '#22c55e', marginTop: '5px' }}>
+                {Math.max(0, Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice)) + checkoutDevice.items.reduce((s, i) => s + (i.price * i.qty), 0) - (discountAmount !== '' ? Number(discountAmount) : 0))} ج.م
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد ودفع 💳</button>
-              <button onClick={() => setShowPreviewModal(false)} style={{ flex: 1, padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
+              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد الدفع وإغلاق الفاتورة ✅</button>
+              <button onClick={() => setShowPreviewModal(false)} style={{ padding: '12px 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
             </div>
           </div>
         </div>
