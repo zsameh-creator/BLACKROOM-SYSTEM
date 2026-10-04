@@ -124,6 +124,11 @@ export default function App() {
     ps: true, drinks: true, expenses: true, shift: true, archive: true, users: false, settings: false
   });
 
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState('user');
+  const [editPerms, setEditPerms] = useState({});
+
   // العداد التلقائي
   useEffect(() => {
     const timer = setInterval(() => {
@@ -384,6 +389,8 @@ export default function App() {
     );
   }
 
+  const userPerms = currentUser.permissions || { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true };
+
   return (
     <div dir="rtl" style={{ display: 'flex', minHeight: '100vh', background: '#03050a', color: '#fff', fontFamily: 'Cairo, sans-serif' }}>
       <style>{`
@@ -416,13 +423,13 @@ export default function App() {
               📊 تقرير الوردية الحالي
             </button>
             <button onClick={() => setActiveTab('archive')} style={{ padding: '12px 15px', background: activeTab === 'archive' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'archive' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-              📂 الأرشيف والتقارير
+              📂 الأرشيف والتقارير المخصصة
             </button>
 
             {currentUser.role === 'admin' && (
               <>
                 <button onClick={() => setActiveTab('users')} style={{ padding: '12px 15px', background: activeTab === 'users' ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'transparent', color: '#fff', border: activeTab === 'users' ? '1px solid rgba(168,85,247,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-                  👥 إدارة المستخدمين
+                  👥 إدارة المستخدمين والصلاحيات
                 </button>
                 <button onClick={() => setActiveTab('settings')} style={{ padding: '12px 15px', background: activeTab === 'settings' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'settings' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
                   ⚙️ الإعدادات العامة والأجهزة
@@ -453,7 +460,7 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '25px' }}>
               <div>
                 <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>إدارة أجهزة البلايستيشن</h1>
-                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>تحكم في الجلسات والأجهزة بكل سهولة</p>
+                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>ابدأ الجلسات وتحكم في الأجهزة بسهولة وبمظهر تريندي أنيق</p>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -544,7 +551,214 @@ export default function App() {
           </div>
         )}
 
-        {/* إعدادات النظام وأجهزة البلايستيشن */}
+        {activeTab === 'drinks' && (
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>مبيعات الكافتيريا والمشاريب</h1>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px' }}>
+              {products.map(p => (
+                <div key={p.id} className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
+                  <h3 style={{ marginBottom: '10px' }}>{p.name}</h3>
+                  <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '18px', marginBottom: '15px' }}>{p.price} ج.م</p>
+                  <button onClick={() => {
+                    const inv = { id: Date.now(), deviceName: 'مبيعات كافتيريا', date: new Date().toISOString().split('T')[0], type: 'مبيعات خارجية', timeSpent: '-', timeCost: 0, items: [{...p, qty: 1}], itemsCost: p.price, discount: 0, total: p.price, paymentMethod: settings.paymentMethods[0] || 'كاش', time: new Date().toLocaleTimeString('ar-EG') };
+                    setShiftInvoices(prev => [inv, ...prev]);
+                    alert(`تم بيع ${p.name} بنجاح!`);
+                  }} style={{ padding: '10px 15px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>بيع سريع ⚡</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'expenses' && (
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>المصروفات اليومية</h1>
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', maxWidth: '500px', marginTop: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', color: '#38bdf8' }}>سبب المصروف</label>
+                <input type="text" value={expTitle} onChange={e=>setExpTitle(e.target.value)} placeholder="مثال: كهرباء، بوفيه..." style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', color: '#38bdf8' }}>المبلغ (ج.م)</label>
+                <input type="number" value={expAmount} onChange={e=>setExpAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+              </div>
+              <button onClick={() => {
+                if(!expTitle || !expAmount) return;
+                setExpenses([...expenses, { id: Date.now(), title: expTitle, amount: Number(expAmount) }]);
+                setExpTitle(''); setExpAmount('');
+                alert('تم تسجيل المصروف بنجاح!');
+              }} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}>إضافة مصروف 💸</button>
+            </div>
+          </div>
+        )}
+
+        {/* تقرير الوردية الحالية */}
+        {activeTab === 'shift' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h1 style={{ fontSize: '28px', fontWeight: '900', margin: 0 }}>تقرير الوردية الحالية (#{shiftNumber})</h1>
+              <button onClick={closeShift} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                إغلاق وأرشفة الوردية 📁
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', margin: '20px 0' }}>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', borderLeft: '4px solid #38bdf8' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي الإيرادات</p>
+                <h3 style={{ color: '#38bdf8', fontSize: '24px', marginTop: '5px' }}>{totalRevenue} ج.م</h3>
+              </div>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', borderLeft: '4px solid #ef4444' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي المصروفات</p>
+                <h3 style={{ color: '#ef4444', fontSize: '24px', marginTop: '5px' }}>{totalExpenses} ج.م</h3>
+              </div>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', borderLeft: '4px solid #22c55e' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>صافي الوردية</p>
+                <h3 style={{ color: '#22c55e', fontSize: '24px', marginTop: '5px' }}>{netRevenue} ج.م</h3>
+              </div>
+            </div>
+
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', marginBottom: '25px' }}>
+              <h3 style={{ fontSize: '16px', color: '#38bdf8', marginBottom: '15px' }}>💳 تفصيل الإيرادات حسب طريقة الدفع</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                {settings.paymentMethods.map(method => (
+                  <div key={method} style={{ background: '#020408', padding: '15px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>{method}</p>
+                    <h4 style={{ margin: '5px 0 0 0', color: '#22c55e', fontSize: '18px' }}>{revenueByPayment[method] || 0} ج.م</h4>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>قائمة فواتير الوردية الحالية</h3>
+              {shiftInvoices.length === 0 ? (
+                <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>لا توجد فواتير مسجلة بعد في هذه الوردية.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8' }}>
+                        <th style={{ padding: '12px' }}>الجهاز / الصنف</th>
+                        <th style={{ padding: '12px' }}>النوع</th>
+                        <th style={{ padding: '12px' }}>الوقت / الكمية</th>
+                        <th style={{ padding: '12px' }}>الإجمالي</th>
+                        <th style={{ padding: '12px' }}>طريقة الدفع</th>
+                        <th style={{ padding: '12px' }}>الوقت</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shiftInvoices.map(inv => (
+                        <tr key={inv.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '12px', fontWeight: 'bold' }}>{inv.deviceName}</td>
+                          <td style={{ padding: '12px' }}>{inv.type}</td>
+                          <td style={{ padding: '12px', fontFamily: 'monospace' }}>{inv.timeSpent}</td>
+                          <td style={{ padding: '12px', color: '#22c55e', fontWeight: '900' }}>{inv.total} ج.م</td>
+                          <td style={{ padding: '12px' }}>{inv.paymentMethod}</td>
+                          <td style={{ padding: '12px', color: '#94a3b8', fontSize: '12px' }}>{inv.time}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* الأرشيف */}
+        {activeTab === 'archive' && (
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '15px' }}>📂 أرشيف الورديات والتقارير</h1>
+            <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '25px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#38bdf8', marginBottom: '5px' }}>من تاريخ</label>
+                <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{ padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#38bdf8', marginBottom: '5px' }}>إلى تاريخ</label>
+                <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{ padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+              </div>
+              <button onClick={()=>{setFromDate(''); setToDate('');}} style={{ marginTop: '18px', padding: '10px 15px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>إعادة ضبط الفلتر</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي الإيرادات</p>
+                <h3 style={{ color: '#38bdf8', fontSize: '22px', marginTop: '5px' }}>{filteredTotalRev} ج.م</h3>
+              </div>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>إجمالي المصروفات</p>
+                <h3 style={{ color: '#ef4444', fontSize: '22px', marginTop: '5px' }}>{filteredTotalExp} ج.م</h3>
+              </div>
+              <div className="neon-card" style={{ padding: '20px', borderRadius: '16px' }}>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>صافي الأرباح</p>
+                <h3 style={{ color: '#22c55e', fontSize: '22px', marginTop: '5px' }}>{filteredNetRev} ج.م</h3>
+              </div>
+            </div>
+
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>الورديات المؤرشفة السابقة</h3>
+              {filteredShifts.length === 0 ? (
+                <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>لا توجد ورديات مؤرشفة في النطاق المحدد.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {filteredShifts.map(sh => (
+                    <div key={sh.id} style={{ background: '#020408', padding: '20px', borderRadius: '14px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h4 style={{ margin: 0, color: '#38bdf8', fontSize: '16px' }}>وردية رقم #{sh.shiftNumber} ({sh.date})</h4>
+                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>المسؤول: {sh.cashier}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '20px', fontSize: '14px', flexWrap: 'wrap' }}>
+                        <span>الإيرادات: <strong style={{ color: '#38bdf8' }}>{sh.totalRevenue} ج.م</strong></span>
+                        <span>المصروفات: <strong style={{ color: '#ef4444' }}>{sh.totalExpenses} ج.م</strong></span>
+                        <span>الصافي: <strong style={{ color: '#22c55e' }}>{sh.netRevenue} ج.م</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* إدارة المستخدمين */}
+        {activeTab === 'users' && currentUser.role === 'admin' && (
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>👥 إدارة المستخدمين والصلاحيات</h1>
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', maxWidth: '600px', marginBottom: '30px' }}>
+              <h3 style={{ fontSize: '16px', color: '#38bdf8', marginBottom: '15px' }}>➕ إضافة موظف جديد</h3>
+              <form onSubmit={handleAddUser} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input type="text" value={newUsername} onChange={e=>setNewUsername(e.target.value)} placeholder="اسم المستخدم للدخول" style={{ padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+                <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="كلمة المرور" style={{ padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+                <input type="text" value={newFullName} onChange={e=>setNewFullName(e.target.value)} placeholder="الاسم بالكامل (مثال: موظف الشفت الصباحي)" style={{ padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+                <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={{ padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
+                  <option value="user">موظف (صلاحيات مخصصة)</option>
+                  <option value="admin">أدمن عام (صلاحيات كاملة)</option>
+                </select>
+                <button type="submit" style={{ padding: '12px', background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ وإضافة الموظف</button>
+              </form>
+            </div>
+
+            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>المستخدمين المسجلين في النظام</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {usersList.map(u => (
+                  <div key={u.id} style={{ background: '#020408', padding: '18px', borderRadius: '14px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                    <div>
+                      <h4 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>{u.fullName} ({u.username})</h4>
+                      <span style={{ fontSize: '12px', color: u.role === 'admin' ? '#22c55e' : '#f59e0b' }}>{u.role === 'admin' ? 'مدير عام' : 'موظف'}</span>
+                    </div>
+                    {u.username !== 'zead' && (
+                      <button onClick={() => handleDeleteUser(u.id)} style={{ padding: '8px 15px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>حذف المستخدم</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* الإعدادات العامة وإدارة أجهزة البلايستيشن */}
         {activeTab === 'settings' && currentUser.role === 'admin' && (
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>⚙️ الإعدادات العامة وإدارة الأجهزة</h1>
@@ -583,7 +797,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* قائمة وتعديل الأجهزة (حذف، تعديل حالة الصيانة أو الاسم) */}
+            {/* إدارة وتعديل الأجهزة الحالية */}
             <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>إدارة وتعديل أجهزة البلايستيشن الحالية</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -597,8 +811,8 @@ export default function App() {
                           <option value="Multi">ملتي</option>
                         </select>
                         <select defaultValue={d.status} onChange={e=>setEditDevStatus(e.target.value)} style={{ padding: '8px', background: '#03050a', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px' }}>
-                          <option value="available">شغال / متاح</option>
-                          <option value="maintenance">في الصيانة 🔧</option>
+                          <option value="available">متاح</option>
+                          <option value="maintenance">في الصيانة</option>
                         </select>
                         <button onClick={() => handleUpdateDevice(d.id)} style={{ padding: '8px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ</button>
                         <button onClick={() => setEditingDeviceId(null)} style={{ padding: '8px 15px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
@@ -609,7 +823,7 @@ export default function App() {
                           <h4 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>{d.name}</h4>
                           <span style={{ fontSize: '12px', color: '#38bdf8' }}>({d.type === 'Single' ? 'سنجل' : 'ملتي'})</span>
                           <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', background: d.status === 'maintenance' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)', color: d.status === 'maintenance' ? '#ef4444' : '#22c55e' }}>
-                            {d.status === 'maintenance' ? 'في الصيانة 🔧' : 'شغال / متاح ✅'}
+                            {d.status === 'maintenance' ? 'في الصيانة' : 'شغال / متاح'}
                           </span>
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
@@ -627,7 +841,7 @@ export default function App() {
 
       </div>
 
-      {/* نوافذ الحوار وبدء الجلسات */}
+      {/* نافذة بدء جلسة */}
       {startingDeviceModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
           <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '380px', textAlign: 'center' }}>
@@ -663,7 +877,7 @@ export default function App() {
         </div>
       )}
 
-      {/* نافذة معاينة الفاتورة ودفع الحساب */}
+      {/* نافذة معاينة الفاتورة وإنهاء الحساب والدفع */}
       {showPreviewModal && checkoutDevice && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px' }}>
           <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
