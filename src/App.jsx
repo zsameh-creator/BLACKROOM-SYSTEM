@@ -538,141 +538,8 @@ export default function App() {
                 <div style={{ color: '#ef4444', fontSize: '24px', fontWeight: '900', marginTop: '5px' }}>{totalExpenses} ج.م</div>
               </div>
               <div className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px' }}>صافي الوردية</div>
+                <div style={{ color: '#94a3b8', fontSize: '13px' }}>صافي الخزنة</div>
                 <div style={{ color: '#38bdf8', fontSize: '24px', fontWeight: '900', marginTop: '5px' }}>{netRevenue} ج.م</div>
-              </div>
-            </div>
-
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
-              <h3 style={{ fontSize: '18px', color: '#38bdf8', marginBottom: '15px' }}>فواتير الوردية المسجلة ({shiftInvoices.length})</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {shiftInvoices.length === 0 ? (
-                  <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>لا توجد فواتير مسجلة حتى الآن</p>
-                ) : (
-                  shiftInvoices.map(inv => (
-                    <div key={inv.id} style={{ background: '#020408', padding: '15px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#38bdf8' }}>{inv.deviceName} ({inv.type})</div>
-                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>الوقت: {inv.timeSpent} | الدفع: {inv.paymentMethod} | {inv.time}</div>
-                      </div>
-                      <div style={{ fontSize: '18px', fontWeight: '900', color: '#22c55e' }}>{inv.total} ج.م</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'archive' && (
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>📂 أرشيف الورديات السابقة</h1>
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
-              {archivedShifts.length === 0 ? (
-                <p style={{ color: '#94a3b8', textAlign: 'center', padding: '30px' }}>لا توجد ورديات مؤرشفة حتى الآن</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  {archivedShifts.map(sh => (
-                    <div key={sh.id} style={{ background: '#020408', padding: '20px', borderRadius: '14px', border: '1px solid rgba(56,189,248,0.3)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <h3 style={{ fontSize: '18px', color: '#38bdf8' }}>وردية رقم #{sh.shiftNumber} ({sh.date})</h3>
-                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>الكاشير: {sh.cashier}</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '20px', fontSize: '14px', color: '#94a3b8' }}>
-                        <div>الإيرادات: <span style={{ color: '#22c55e', fontWeight: 'bold' }}>{sh.totalRevenue} ج.م</span></div>
-                        <div>المصروفات: <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{sh.totalExpenses} ج.م</span></div>
-                        <div>الصافي: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{sh.netRevenue} ج.م</span></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'users' && currentUser.role === 'admin' && (
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>إدارة المستخدمين والصلاحيات</h1>
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {usersList.map(u => (
-                  <div key={u.id} style={{ background: '#020408', padding: '15px 20px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{u.fullName} ({u.username})</div>
-                      <div style={{ fontSize: '12px', color: u.role === 'admin' ? '#22c55e' : '#f59e0b', marginTop: '4px' }}>{u.role === 'admin' ? 'مدير عام' : 'موظف'}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && currentUser.role === 'admin' && (
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '20px' }}>الإعدادات العامة للنظام</h1>
-            
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', color: '#38bdf8', marginBottom: '15px' }}>🎮 إدارة أجهزة البلايستيشن (إضافة، تعديل وحالة صيانة)</h3>
-              
-              <form onSubmit={handleAddDevice} style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                <input 
-                  type="text" 
-                  placeholder="اسم الجهاز الجديد (مثال: PS5 - 05)" 
-                  value={newDeviceName}
-                  onChange={(e) => setNewDeviceName(e.target.value)}
-                  style={{ flex: 1, minWidth: '200px', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}
-                  required
-                />
-                <select 
-                  value={newDeviceType} 
-                  onChange={(e) => setNewDeviceType(e.target.value)}
-                  style={{ padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}
-                >
-                  <option value="Single">سنجل (Single)</option>
-                  <option value="Multi">ملتي (Multi)</option>
-                </select>
-                <button type="submit" style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إضافة جهاز ➕</button>
-              </form>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {devices.map(device => (
-                  <div key={device.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#020408', padding: '12px 18px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{device.name}</span>
-                      <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '12px', background: device.deviceStatus === 'maintenance' ? 'rgba(234,179,8,0.2)' : 'rgba(34,197,94,0.2)', color: device.deviceStatus === 'maintenance' ? '#eab308' : '#22c55e' }}>
-                        {device.deviceStatus === 'maintenance' ? '🛠️ في صيانة' : '🟢 نشط'}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleToggleDeviceMaintenance(device.id)} style={{ padding: '6px 12px', background: device.deviceStatus === 'active' ? '#eab308' : '#22c55e', border: 'none', color: '#000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-                        {device.deviceStatus === 'active' ? 'تحويل للصيانة 🛠' : 'تفعيل الجهاز 🟢'}
-                      </button>
-                      <button onClick={() => handleRenameDevice(device.id)} style={{ padding: '6px 12px', background: '#3b82f6', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-                        تعديل الاسم ✏️
-                      </button>
-                      <button onClick={() => handleDeleteDevice(device.id)} style={{ padding: '6px 12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-                        حذف 🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="neon-card" style={{ padding: '25px', borderRadius: '20px', marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', color: '#38bdf8', marginBottom: '15px' }}>💰 أسعار ساعات اللعب</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
-                <div>
-                  <label style={{ fontSize: '13px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>سعر السنجل (ج.م/ساعة)</label>
-                  <input type="number" value={settings.singlePrice} onChange={e => setSettings({...settings, singlePrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '13px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>سعر الملتي (ج.م/ساعة)</label>
-                  <input type="number" value={settings.multiPrice} onChange={e => setSettings({...settings, multiPrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px' }} />
-                </div>
               </div>
             </div>
           </div>
@@ -680,89 +547,57 @@ export default function App() {
 
       </div>
 
-      {/* نافذة بدء جلسة جديدة */}
+      {/* نوافذ الحوار (Modals) المؤقتة */}
       {startingDeviceModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="neon-card" style={{ background: '#0d1224', padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '400px', border: '1px solid rgba(56,189,248,0.4)' }}>
-            <h3 style={{ fontSize: '20px', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>بدء جلسة: {startingDeviceModal.name}</h3>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '13px', color: '#94a3b8', display: 'block', marginBottom: '8px' }}>اختر نوع اللعب:</label>
-              <select value={selectedStartType} onChange={e => setSelectedStartType(e.target.value)} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.4)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
-                <option value="Single">سنجل (Single) - {settings.singlePrice} ج.م/ساعة</option>
-                <option value="Multi">ملتي (Multi) - {settings.multiPrice} ج.م/ساعة</option>
-              </select>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '380px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px' }}>بدء جلسة لـ {startingDeviceModal.name}</h3>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <button onClick={() => setSelectedStartType('Single')} style={{ flex: 1, padding: '12px', background: selectedStartType === 'Single' ? '#0284c7' : '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.4)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>سنجل 👤</button>
+              <button onClick={() => setSelectedStartType('Multi')} style={{ flex: 1, padding: '12px', background: selectedStartType === 'Multi' ? '#0284c7' : '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.4)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>ملتي 👥</button>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={confirmStartSession} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد وبدء العداد 🚀</button>
+              <button onClick={confirmStartSession} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد البدء</button>
               <button onClick={() => setStartingDeviceModal(null)} style={{ flex: 1, padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* نافذة إضافة منتج للجهاز */}
       {addingItemDevice && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="neon-card" style={{ background: '#0d1224', padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', border: '1px solid rgba(56,189,248,0.4)' }}>
-            <h3 style={{ fontSize: '20px', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>إضافة منتج إلى {addingItemDevice.name}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto', marginBottom: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '400px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center' }}>إضافة منتج إلى {addingItemDevice.name}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto', marginBottom: '20px' }}>
               {products.map(prod => (
-                <div key={prod.id} onClick={() => addProductToDevice(addingItemDevice.id, prod)} style={{ background: '#020408', padding: '12px 15px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                <div key={prod.id} onClick={() => addProductToDevice(addingItemDevice.id, prod)} style={{ background: '#020408', padding: '12px 15px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                   <span style={{ fontWeight: 'bold' }}>{prod.name}</span>
-                  <span style={{ color: '#22c55e', fontWeight: 'bold' }}>{prod.price} ج.م (+ اضافة)</span>
+                  <span style={{ color: '#22c55e', fontWeight: '900' }}>{prod.price} ج.م</span>
                 </div>
               ))}
             </div>
-            <button onClick={() => setAddingItemDevice(null)} style={{ width: '100%', padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إغلاق</button>
+            <button onClick={() => setAddingItemDevice(null)} style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إغلاق</button>
           </div>
         </div>
       )}
 
-      {/* نافذة معاينة الفاتورة والدفع */}
       {showPreviewModal && checkoutDevice && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="neon-card" style={{ background: '#0d1224', padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', border: '1px solid rgba(34,197,94,0.4)' }}>
-            <h3 style={{ fontSize: '22px', color: '#22c55e', marginBottom: '15px', textAlign: 'center' }}>💳 فاتورة نهائية: {checkoutDevice.name}</h3>
-            
-            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>مدة اللعب ({checkoutDevice.type === 'Single' ? 'سنجل' : 'ملتي'}):</span>
-                <span>{formatTime(checkoutDevice.seconds)}</span>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '420px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center' }}>فاتورة جهاز: {checkoutDevice.name}</h3>
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '20px', fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>مدة الجلسة:</span> <span style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{formatTime(checkoutDevice.seconds)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>حساب الوقت:</span> <span style={{ color: '#22c55e' }}>{Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>حساب المنتجات:</span> <span style={{ color: '#22c55e' }}>{checkoutDevice.items.reduce((s, i) => s + (i.price * i.qty), 0)} ج.م</span></div>
+              <hr style={{ borderColor: 'rgba(56,189,248,0.2)', margin: '5px 0' }} />
+              <div>
+                <label style={{ fontSize: '12px', color: '#38bdf8', display: 'block', marginBottom: '5px' }}>خصم (إن وجد):</label>
+                <input type="number" placeholder="قيمة الخصم" value={discountAmount} onChange={e => setDiscountAmount(e.target.value)} style={{ width: '100%', padding: '8px', background: '#05070f', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '8px', outline: 'none' }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>تكلفة الوقت:</span>
-                <span style={{ fontWeight: 'bold', color: '#38bdf8' }}>{Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</span>
-              </div>
-              {checkoutDevice.items.length > 0 && (
-                <div style={{ borderTop: '1px solid rgba(56,189,248,0.2)', paddingTop: '8px', marginTop: '4px' }}>
-                  <div style={{ color: '#94a3b8', marginBottom: '4px' }}>المشاريب والمنتجات المضافة:</div>
-                  {checkoutDevice.items.map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', paddingLeft: '10px' }}>
-                      <span>{item.name} (x{item.qty})</span>
-                      <span>{item.price * item.qty} ج.م</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ fontSize: '13px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>خصم (إن وجد بالجنيه):</label>
-              <input type="number" placeholder="0" value={discountAmount} onChange={e=>setDiscountAmount(e.target.value)} style={{ width: '100%', padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '13px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>طريقة الدفع:</label>
-              <select value={selectedPaymentMethod} onChange={e=>setSelectedPaymentMethod(e.target.value)} style={{ width: '100%', padding: '10px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
-                {settings.paymentMethods.map((m, idx) => (
-                  <option key={idx} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>تأكيد الدفع وإغلاق 🚀</button>
-              <button onClick={() => setShowPreviewModal(false)} style={{ flex: 1, padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>إلغاء</button>
+              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد ودفع 💳</button>
+              <button onClick={() => setShowPreviewModal(false)} style={{ flex: 1, padding: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
             </div>
           </div>
         </div>
