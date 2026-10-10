@@ -1,54 +1,44 @@
 import { useState, useEffect } from 'react';
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, doc, setDoc, addDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+
+// مفاتيح الاتصال الحقيقية الخاصة بمشروع blackroom-system
+const firebaseConfig = {
+  apiKey: "AIzaSyB0f2oHZELX8FI6a0rApLlh1McmumjnxWE",
+  authDomain: "blackroom-system.firebaseapp.com",
+  projectId: "blackroom-system",
+  storageBucket: "blackroom-system.firebasestorage.app",
+  messagingSenderId: "1060128907829",
+  appId: "1:1060128907829:web:3529806e2d92adbea3477c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 export default function App() {
-  // 1. حالة تسجيل الدخول والصلاحيات
   const [currentUser, setCurrentUser] = useState(null);
   const [loginInputUser, setLoginInputUser] = useState('');
   const [loginInputPass, setLoginInputPass] = useState('');
 
-  // 2. قاعدة بيانات المستخدمين (مع الصلاحيات التفصيلية)
-  const [usersList, setUsersList] = useState(() => {
-    const saved = localStorage.getItem('ps_users_db');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, username: 'zead', password: '123', role: 'admin', fullName: 'المدير العام (Zead)', permissions: { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true } },
-      { id: 2, username: 'cashier', password: '111', role: 'user', fullName: 'موظف الاستقبال', permissions: { ps: true, drinks: true, expenses: true, shift: true, archive: false, users: false, settings: false } }
-    ];
+  // 1. قاعدة بيانات المستخدمين من Firestore
+  const [usersList, setUsersList] = useState([]);
+  
+  // 2. الإعدادات العامة من Firestore
+  const [settings, setSettings] = useState({
+    singlePrice: 40,
+    multiPrice: 60,
+    paymentMethods: ['كاش (Cash)', 'فودافون كاش', 'إنستا باي']
   });
-
-  useEffect(() => {
-    localStorage.setItem('ps_users_db', JSON.stringify(usersList));
-  }, [usersList]);
 
   const [activeTab, setActiveTab] = useState('ps');
 
-  // 3. الإعدادات العامة (الأسعار وطرق الدفع)
-  const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('ps_settings');
-    return saved ? JSON.parse(saved) : {
-      singlePrice: 40,
-      multiPrice: 60,
-      paymentMethods: ['كاش (Cash)', 'فودافون كاش', 'إنستا باي']
-    };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('ps_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  // 4. أجهزة البلايستيشن
-  const [devices, setDevices] = useState(() => {
-    const saved = localStorage.getItem('ps_devices_db');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'PS5 - 01', type: 'Single', status: 'available', seconds: 0, items: [] },
-      { id: 2, name: 'PS5 - 02', type: 'Multi', status: 'available', seconds: 0, items: [] },
-      { id: 3, name: 'PS4 - 03', type: 'Single', status: 'available', seconds: 0, items: [] },
-      { id: 4, name: 'PS5 - 04', type: 'Multi', status: 'available', seconds: 0, items: [] },
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('ps_devices_db', JSON.stringify(devices));
-  }, [devices]);
+  // 3. أجهزة البلايستيشن من Firestore
+  const [devices, setDevices] = useState([
+    { id: '1', name: 'PS5 - 01', type: 'Single', status: 'available', startTime: null, items: [] },
+    { id: '2', name: 'PS5 - 02', type: 'Multi', status: 'available', startTime: null, items: [] },
+    { id: '3', name: 'PS4 - 03', type: 'Single', status: 'available', startTime: null, items: [] },
+    { id: '4', name: 'PS5 - 04', type: 'Multi', status: 'available', startTime: null, items: [] },
+  ]);
 
   // إعدادات إدارة الأجهزة الجديدة في صفحة الإعدادات
   const [newDevName, setNewDevName] = useState('');
@@ -59,80 +49,125 @@ export default function App() {
   const [editDevType, setEditDevType] = useState('Single');
   const [editDevStatus, setEditDevStatus] = useState('available');
 
-  // 5. المنتجات والمشاريب
-  const [products, setProducts] = useState([
-    { id: 1, name: 'بيبسي (Pepsi)', price: 15 },
-    { id: 2, name: 'مياه معدنية (Water)', price: 10 },
-    { id: 3, name: 'شاي (Tea)', price: 12 }
-  ]);
+  // 4. المنتجات والمشاريب من Firestore
+  const [products, setProducts] = useState([]);
 
-  // 6. النوافذ المؤقتة والمعاينة (Checkout & Preview)
+  // حالات إضافة منتج جديد
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdPrice, setNewProdPrice] = useState('');
+
+  // 5. النوافذ المؤقتة والمعاينة (Checkout & Preview)
   const [checkoutDevice, setCheckoutDevice] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+  // حالة معاينة تفاصيل الفاتورة عند الضغط عليها في الوردية
+  const [selectedInvoicePreview, setSelectedInvoicePreview] = useState(null);
+
   const [addingItemDevice, setAddingItemDevice] = useState(null);
   const [startingDeviceModal, setStartingDeviceModal] = useState(null);
   const [selectedStartType, setSelectedStartType] = useState('Single');
 
-  // 7. الوردية الحالية والمصروفات والأرشيف
-  const [shiftInvoices, setShiftInvoices] = useState(() => {
-    const saved = localStorage.getItem('ps_shift_invoices');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [shiftNumber, setShiftNumber] = useState(() => {
-    const saved = localStorage.getItem('ps_shift_number');
-    return saved ? JSON.parse(saved) : 1;
-  });
-  const [expenses, setExpenses] = useState(() => {
-    const saved = localStorage.getItem('ps_expenses');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // 6. الوردية الحالية والمصروفات والأرشيف
+  const [shiftInvoices, setShiftInvoices] = useState([]);
+  const [shiftNumber, setShiftNumber] = useState(1);
+  const [expenses, setExpenses] = useState([]);
   const [expTitle, setExpTitle] = useState('');
   const [expAmount, setExpAmount] = useState('');
-
-  useEffect(() => {
-    localStorage.setItem('ps_shift_invoices', JSON.stringify(shiftInvoices));
-  }, [shiftInvoices]);
-
-  useEffect(() => {
-    localStorage.setItem('ps_shift_number', JSON.stringify(shiftNumber));
-  }, [shiftNumber]);
-
-  useEffect(() => {
-    localStorage.setItem('ps_expenses', JSON.stringify(expenses));
-  }, [expenses]);
-
-  const [archivedShifts, setArchivedShifts] = useState(() => {
-    const saved = localStorage.getItem('ps_archived_shifts');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [archivedShifts, setArchivedShifts] = useState([]);
+  
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem('ps_archived_shifts', JSON.stringify(archivedShifts));
-  }, [archivedShifts]);
-
-  // 8. حالات لوحة تحكم المستخدمين الجدد والصلاحيات
+  // 7. حالات لوحة تحكم المستخدمين الجدد والصلاحيات
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newFullName, setNewFullName] = useState('');
   const [newRole, setNewRole] = useState('user');
-  const [newPerms, setNewPerms] = useState({
+  const [newPerms] = useState({
     ps: true, drinks: true, expenses: true, shift: true, archive: true, users: false, settings: false
   });
 
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState('user');
-  const [editPerms, setEditPerms] = useState({});
+  // جلب البيانات المباشرة من Firestore عند فتح التطبيق
+  useEffect(() => {
+    const unsubDevices = onSnapshot(collection(db, "ps_devices"), (snapshot) => {
+      if (!snapshot.empty) {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setDevices(list);
+      }
+    });
 
-  // العداد التلقائي
+    const unsubProducts = onSnapshot(collection(db, "ps_products"), (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setProducts(list);
+    });
+
+    const unsubUsers = onSnapshot(collection(db, "ps_users"), (snapshot) => {
+      if (!snapshot.empty) {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setUsersList(list);
+      } else {
+        const defaultAdmin = { username: 'zead', password: '123', role: 'admin', fullName: 'المدير العام (Zead)', permissions: { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true } };
+        setDoc(doc(db, "ps_users", "admin_default"), defaultAdmin);
+      }
+    });
+
+    const unsubSettings = onSnapshot(collection(db, "ps_settings"), (snapshot) => {
+      if (!snapshot.empty) {
+        setSettings(snapshot.docs[0].data());
+      }
+    });
+
+    const unsubInvoices = onSnapshot(collection(db, "ps_shift_invoices"), (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setShiftInvoices(list);
+    });
+
+    const unsubExpenses = onSnapshot(collection(db, "ps_expenses"), (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setExpenses(list);
+    });
+
+    const unsubArchive = onSnapshot(collection(db, "ps_archived_shifts"), (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setArchivedShifts(list);
+    });
+
+    return () => {
+      unsubDevices();
+      unsubProducts();
+      unsubUsers();
+      unsubSettings();
+      unsubInvoices();
+      unsubExpenses();
+      unsubArchive();
+    };
+  }, []);
+
+  // دالة لتنسيق الوقت بصيغة إنجليزية مع ص / م بالعربي
+  const formatTimeWithAMPM = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'م' : 'ص';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // الساعة 12
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
+  const getDeviceSeconds = (dev) => {
+    if (dev.status !== 'busy' || !dev.startTime) return 0;
+    const now = Date.now();
+    const diffSecs = Math.floor((now - dev.startTime) / 1000);
+    return diffSecs > 0 ? diffSecs : 0;
+  };
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setDevices(prev => prev.map(d => d.status === 'busy' ? { ...d, seconds: d.seconds + 1 } : d));
+      setDevices(prev => [...prev]);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -155,35 +190,53 @@ export default function App() {
     }
   };
 
-  const confirmStartSession = () => {
+  const confirmStartSession = async () => {
     if (!startingDeviceModal) return;
-    setDevices(prev => prev.map(d => d.id === startingDeviceModal.id ? { ...d, status: 'busy', type: selectedStartType, seconds: 0, items: [] } : d));
+    const currentTimestamp = Date.now();
+    const updatedDev = { ...startingDeviceModal, status: 'busy', type: selectedStartType, startTime: currentTimestamp, items: [] };
+    
+    await setDoc(doc(db, "ps_devices", String(startingDeviceModal.id)), updatedDev);
     setStartingDeviceModal(null);
+    alert(`🚀 تم بدء الجلسة لجهاز ${startingDeviceModal.name} بنجاح!`);
   };
 
-  const toggleDeviceTypeMidSession = (id) => {
-    setDevices(prev => prev.map(d => {
-      if (d.id === id) {
-        const nextType = d.type === 'Single' ? 'Multi' : 'Single';
-        return { ...d, type: nextType };
-      }
-      return d;
-    }));
+  const toggleDeviceTypeMidSession = async (dev) => {
+    const nextType = dev.type === 'Single' ? 'Multi' : 'Single';
+    const updatedDev = { ...dev, type: nextType };
+    await setDoc(doc(db, "ps_devices", String(dev.id)), updatedDev);
+    alert(`🔄 تم تحويل الجهاز إلى نوع (${nextType === 'Single' ? 'سنجل 👤' : 'ملتي 👥'}) بنجاح!`);
   };
 
-  const addProductToDevice = (deviceId, product) => {
-    setDevices(prev => prev.map(d => {
-      if (d.id === deviceId) {
-        const existing = d.items.find(i => i.id === product.id);
-        if (existing) {
-          return { ...d, items: d.items.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i) };
-        } else {
-          return { ...d, items: [...d.items, { ...product, qty: 1 }] };
-        }
-      }
-      return d;
-    }));
+  const addProductToDevice = async (dev, product) => {
+    let updatedItems = [...dev.items];
+    const existing = updatedItems.find(i => i.id === product.id);
+    if (existing) {
+      updatedItems = updatedItems.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+    } else {
+      updatedItems.push({ ...product, qty: 1 });
+    }
+    const updatedDev = { ...dev, items: updatedItems };
+    await setDoc(doc(db, "ps_devices", String(dev.id)), updatedDev);
     setAddingItemDevice(null);
+    alert(`🥤 تمت إضافة "${product.name}" بنجاح إلى ${dev.name}!`);
+  };
+
+  const handleAddNewProduct = async (e) => {
+    e.preventDefault();
+    if (!newProdName || !newProdPrice) return;
+    await addDoc(collection(db, "ps_products"), {
+      name: newProdName,
+      price: Number(newProdPrice)
+    });
+    setNewProdName('');
+    setNewProdPrice('');
+    setShowAddProductModal(false);
+    alert('✅ تم إضافة المنتج بنجاح إلى القائمة وقاعدة البيانات!');
+  };
+
+  const handleDeleteProduct = async (id) => {
+    await deleteDoc(doc(db, "ps_products", String(id)));
+    alert('🗑️ تم حذف المنتج بنجاح.');
   };
 
   const prepareCheckout = (dev) => {
@@ -193,21 +246,21 @@ export default function App() {
     setShowPreviewModal(true);
   };
 
-  const finalizeCheckout = () => {
+  const finalizeCheckout = async () => {
     if (!checkoutDevice) return;
+    const activeSecs = getDeviceSeconds(checkoutDevice);
     const pricePerHour = checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice;
-    const timeCost = Math.round((checkoutDevice.seconds / 3600) * pricePerHour);
+    const timeCost = Math.round((activeSecs / 3600) * pricePerHour);
     const itemsCost = checkoutDevice.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
     const subTotal = timeCost + itemsCost;
     const discount = discountAmount !== '' ? Number(discountAmount) : 0;
     const totalAmount = Math.max(0, subTotal - discount);
 
     const invoiceData = {
-      id: Date.now(),
       deviceName: checkoutDevice.name,
       date: new Date().toISOString().split('T')[0],
       type: checkoutDevice.type === 'Single' ? 'سنجل' : 'ملتي',
-      timeSpent: formatTime(checkoutDevice.seconds),
+      timeSpent: formatTime(activeSecs),
       timeCost,
       items: checkoutDevice.items,
       itemsCost,
@@ -217,14 +270,15 @@ export default function App() {
       time: new Date().toLocaleTimeString('ar-EG')
     };
 
-    setShiftInvoices(prev => [invoiceData, ...prev]);
-    setDevices(prev => prev.map(d => d.id === checkoutDevice.id ? { ...d, status: 'available', seconds: 0, items: [] } : d));
+    await addDoc(collection(db, "ps_shift_invoices"), invoiceData);
+    await setDoc(doc(db, "ps_devices", String(checkoutDevice.id)), { ...checkoutDevice, status: 'available', startTime: null, items: [] });
+    
     setShowPreviewModal(false);
     setCheckoutDevice(null);
-    alert('تم إغلاق الفاتورة ودفع الحساب بنجاح!');
+    alert(`💳 تم إغلاق فاتورة ${checkoutDevice.name} ودفع الحساب بقيمة (${totalAmount} ج.م) بنجاح!`);
   };
 
-  const closeShift = () => {
+  const closeShift = async () => {
     if (currentUser?.role !== 'admin' && !currentUser?.permissions?.shift) {
       alert('عذراً، لا تمتلك الصلاحية لإنهاء الوردية وأرشفتها!');
       return;
@@ -238,7 +292,6 @@ export default function App() {
     const totalExp = expenses.reduce((s, ex) => s + ex.amount, 0);
 
     const shiftArchive = {
-      id: Date.now(),
       shiftNumber,
       date: new Date().toISOString().split('T')[0],
       timestamp: new Date().toLocaleString(),
@@ -250,14 +303,19 @@ export default function App() {
       netRevenue: totalRev - totalExp
     };
 
-    setArchivedShifts(prev => [...prev, shiftArchive]);
-    alert(`تم إغلاق الوردية رقم ${shiftNumber} وأرشفتها بنجاح!`);
-    setShiftInvoices([]);
-    setExpenses([]);
+    await addDoc(collection(db, "ps_archived_shifts"), shiftArchive);
+    alert(`📁 تم إغلاق الوردية رقم ${shiftNumber} وأرشفتها بنجاح في السحابة!`);
+    
+    for (let inv of shiftInvoices) {
+      await deleteDoc(doc(db, "ps_shift_invoices", inv.id));
+    }
+    for (let ex of expenses) {
+      await deleteDoc(doc(db, "ps_expenses", ex.id));
+    }
     setShiftNumber(prev => prev + 1);
   };
 
-  const handleAddUser = (e) => {
+  const handleAddUser = async (e) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newFullName) return;
     if (usersList.some(u => u.username === newUsername)) {
@@ -265,79 +323,70 @@ export default function App() {
       return;
     }
     const newUser = {
-      id: Date.now(),
       username: newUsername,
       password: newPassword,
       fullName: newFullName,
       role: newRole,
       permissions: newRole === 'admin' ? { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true } : newPerms
     };
-    setUsersList([...usersList, newUser]);
+    await addDoc(collection(db, "ps_users"), newUser);
     setNewUsername('');
     setNewPassword('');
     setNewFullName('');
     setNewRole('user');
-    alert('تم إضافة المستخدم وصلاحياته بنجاح!');
+    alert('👤 تم إضافة المستخدم وصلاحياته بنجاح!');
   };
 
-  const handleDeleteUser = (id) => {
+  const handleDeleteUser = async (id) => {
     if (usersList.length <= 1) {
       alert('لا يمكن حذف كل المستخدمين!');
       return;
     }
-    if (usersList.find(u => u.id === id)?.username === 'zead') {
-      alert('لا يمكن حذف حساب الأدمن الأساسي!');
-      return;
-    }
-    setUsersList(usersList.filter(u => u.id !== id));
+    await deleteDoc(doc(db, "ps_users", String(id)));
+    alert('🗑️ تم حذف المستخدم بنجاح.');
   };
 
-  // إدارة أجهزة البلايستيشن من الإعدادات (إضافة، تعديل، حذف)
-  const handleAddDevice = (e) => {
+  const handleAddDevice = async (e) => {
     e.preventDefault();
     if (!newDevName) return;
+    const newId = String(Date.now());
     const newDevice = {
-      id: Date.now(),
       name: newDevName,
       type: newDevType,
       status: newDevStatus,
-      seconds: 0,
+      startTime: null,
       items: []
     };
-    setDevices([...devices, newDevice]);
+    await setDoc(doc(db, "ps_devices", newId), newDevice);
     setNewDevName('');
-    alert('تم إضافة الجهاز بنجاح!');
+    alert('🎮 تم إضافة الجهاز بنجاح للقاعدة!');
   };
 
-  const handleDeleteDevice = (id) => {
+  const handleDeleteDevice = async (id) => {
     if (devices.length <= 1) {
       alert('لا يمكن حذف كل الأجهزة!');
       return;
     }
-    setDevices(devices.filter(d => d.id !== id));
+    await deleteDoc(doc(db, "ps_devices", String(id)));
+    alert('🗑️ تم حذف الجهاز بنجاح.');
   };
 
-  const handleUpdateDevice = (id) => {
-    setDevices(devices.map(d => {
-      if (d.id === id) {
-        return {
-          ...d,
-          name: editDevName || d.name,
-          type: editDevType,
-          status: editDevStatus
-        };
-      }
-      return d;
-    }));
+  const handleUpdateDevice = async (dev) => {
+    const updated = {
+      ...dev,
+      name: editDevName || dev.name,
+      type: editDevType,
+      status: editDevStatus
+    };
+    await setDoc(doc(db, "ps_devices", String(dev.id)), updated);
     setEditingDeviceId(null);
-    alert('تم تحديث بيانات الجهاز بنجاح!');
+    alert('✨ تم تحديث بيانات الجهاز بنجاح!');
   };
 
   const totalRevenue = shiftInvoices.reduce((s, inv) => s + inv.total, 0);
   const totalExpenses = expenses.reduce((s, ex) => s + ex.amount, 0);
   const netRevenue = totalRevenue - totalExpenses;
 
-  const totalDevicesCount = devices.length;
   const busyDevicesCount = devices.filter(d => d.status === 'busy').length;
   const availableDevicesCount = devices.filter(d => d.status === 'available').length;
   const maintenanceDevicesCount = devices.filter(d => d.status === 'maintenance').length;
@@ -389,8 +438,6 @@ export default function App() {
     );
   }
 
-  const userPerms = currentUser.permissions || { ps: true, drinks: true, expenses: true, shift: true, archive: true, users: true, settings: true };
-
   return (
     <div dir="rtl" style={{ display: 'flex', minHeight: '100vh', background: '#03050a', color: '#fff', fontFamily: 'Cairo, sans-serif' }}>
       <style>{`
@@ -414,7 +461,7 @@ export default function App() {
               🎮 أجهزة البلايستيشن
             </button>
             <button onClick={() => setActiveTab('drinks')} style={{ padding: '12px 15px', background: activeTab === 'drinks' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'drinks' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
-              🥤 مبيعات المشاريب
+              🥤 مبيعات الكافتيريا والمشاريب
             </button>
             <button onClick={() => setActiveTab('expenses')} style={{ padding: '12px 15px', background: activeTab === 'expenses' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent', color: '#fff', border: activeTab === 'expenses' ? '1px solid rgba(56,189,248,0.5)' : 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', fontWeight: 'bold' }}>
               💸 المصروفات
@@ -460,7 +507,7 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '25px' }}>
               <div>
                 <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>إدارة أجهزة البلايستيشن</h1>
-                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>ابدأ الجلسات وتحكم في الأجهزة بسهولة وبمظهر تريندي أنيق</p>
+                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>قاعدة بيانات سحابية متصلة بالكامل (Firebase)</p>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -481,8 +528,9 @@ export default function App() {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
               {devices.map(dev => {
+                const activeSecs = getDeviceSeconds(dev);
                 const pricePerHour = dev.type === 'Single' ? settings.singlePrice : settings.multiPrice;
-                const timeCost = Math.round((dev.seconds / 3600) * pricePerHour);
+                const timeCost = Math.round((activeSecs / 3600) * pricePerHour);
                 const itemsCost = dev.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
                 const currentTotal = timeCost + itemsCost;
 
@@ -499,8 +547,9 @@ export default function App() {
                         <p style={{ color: '#94a3b8', fontSize: '14px', textAlign: 'center', margin: '30px 0' }}>الجهاز متوقف حالياً للصيانة الفنية.</p>
                       </div>
                       {currentUser.role === 'admin' && (
-                        <button onClick={() => {
-                          setDevices(devices.map(d => d.id === dev.id ? { ...d, status: 'available' } : d));
+                        <button onClick={async () => {
+                          await setDoc(doc(db, "ps_devices", String(dev.id)), { ...dev, status: 'available' });
+                          alert(`✅ تم إعادة جهاز ${dev.name} للخدمة بنجاح!`);
                         }} style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
                           إعادة للخدمة ✅
                         </button>
@@ -519,8 +568,17 @@ export default function App() {
                         </span>
                       </div>
                       <div style={{ fontSize: '30px', fontWeight: '900', fontFamily: 'monospace', color: dev.status === 'busy' ? '#38bdf8' : '#64748b', margin: '15px 0' }}>
-                        {formatTime(dev.seconds)}
+                        {formatTime(activeSecs)}
                       </div>
+                      
+                      {/* وقت الفتح: تم توضيحه ونقله لليمين بصيغة إنجليزية و ص/م */}
+                      {dev.status === 'busy' && dev.startTime && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#38bdf8', marginBottom: '10px', background: 'rgba(56,189,248,0.08)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                          <span>🕒 فتح الساعة:</span>
+                          <strong style={{ fontFamily: 'monospace', fontSize: '13px', direction: 'ltr' }}>{formatTimeWithAMPM(dev.startTime)}</strong>
+                        </div>
+                      )}
+
                       <div style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '15px', background: '#020408', padding: '10px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>الحساب الحالي:</span>
                         <span style={{ color: '#22c55e', fontWeight: '900', fontSize: '16px' }}>{currentTotal} ج.م</span>
@@ -533,7 +591,7 @@ export default function App() {
                       </button>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <button onClick={() => toggleDeviceTypeMidSession(dev.id)} style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
+                        <button onClick={() => toggleDeviceTypeMidSession(dev)} style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
                           🔄 تحويل إلى ({dev.type === 'Single' ? 'ملتي 👥' : 'سنجل 👤'})
                         </button>
                         <button onClick={() => setAddingItemDevice(dev)} style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -551,19 +609,36 @@ export default function App() {
           </div>
         )}
 
+        {/* قسم مبيعات الكافتيريا والمشاريب */}
         {activeTab === 'drinks' && (
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>مبيعات الكافتيريا والمشاريب</h1>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+              <div>
+                <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '5px' }}>مبيعات الكافتيريا والمشاريب</h1>
+                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>إدارة قائمة المشروبات وعمليات البيع السريع</p>
+              </div>
+              
+              <button onClick={() => setShowAddProductModal(true)} style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #0284c7 0%, #7c3aed 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 0 15px rgba(2,132,199,0.3)' }}>
+                ➕ إضافة منتج جديد
+              </button>
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: '900', marginBottom: '15px' }}>المنتجات المتاحة حالياً</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
               {products.map(p => (
-                <div key={p.id} className="neon-card" style={{ padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                  <h3 style={{ marginBottom: '10px' }}>{p.name}</h3>
-                  <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '18px', marginBottom: '15px' }}>{p.price} ج.م</p>
-                  <button onClick={() => {
-                    const inv = { id: Date.now(), deviceName: 'مبيعات كافتيريا', date: new Date().toISOString().split('T')[0], type: 'مبيعات خارجية', timeSpent: '-', timeCost: 0, items: [{...p, qty: 1}], itemsCost: p.price, discount: 0, total: p.price, paymentMethod: settings.paymentMethods[0] || 'كاش', time: new Date().toLocaleTimeString('ar-EG') };
-                    setShiftInvoices(prev => [inv, ...prev]);
-                    alert(`تم بيع ${p.name} بنجاح!`);
-                  }} style={{ padding: '10px 15px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>بيع سريع ⚡</button>
+                <div key={p.id} className="neon-card" style={{ padding: '20px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ marginBottom: '5px', fontSize: '16px' }}>{p.name}</h3>
+                    <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '15px', margin: 0 }}>{p.price} ج.م</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button onClick={async () => {
+                      const inv = { deviceName: 'مبيعات كافتيريا', date: new Date().toISOString().split('T')[0], type: 'مبيعات خارجية', timeSpent: '-', timeCost: 0, items: [{...p, qty: 1}], itemsCost: p.price, discount: 0, total: p.price, paymentMethod: settings.paymentMethods[0] || 'كاش', time: new Date().toLocaleTimeString('ar-EG') };
+                      await addDoc(collection(db, "ps_shift_invoices"), inv);
+                      alert(`✅ تم بيع "${p.name}" بنجاح وتسجيل الفاتورة في الوردية والسحابة!`);
+                    }} style={{ padding: '6px 12px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>بيع سريع ⚡</button>
+                    <button onClick={() => handleDeleteProduct(p.id)} style={{ padding: '4px 10px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px' }}>حذف 🗑️</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -582,11 +657,11 @@ export default function App() {
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', color: '#38bdf8' }}>المبلغ (ج.م)</label>
                 <input type="number" value={expAmount} onChange={e=>setExpAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
               </div>
-              <button onClick={() => {
+              <button onClick={async () => {
                 if(!expTitle || !expAmount) return;
-                setExpenses([...expenses, { id: Date.now(), title: expTitle, amount: Number(expAmount) }]);
+                await addDoc(collection(db, "ps_expenses"), { title: expTitle, amount: Number(expAmount) });
                 setExpTitle(''); setExpAmount('');
-                alert('تم تسجيل المصروف بنجاح!');
+                alert('💸 تم تسجيل المصروف بنجاح في قاعدة البيانات!');
               }} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}>إضافة مصروف 💸</button>
             </div>
           </div>
@@ -630,7 +705,9 @@ export default function App() {
             </div>
 
             <div className="neon-card" style={{ padding: '25px', borderRadius: '20px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>قائمة فواتير الوردية الحالية</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>قائمة فواتير الوردية الحالية</h3>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '15px' }}>💡 اضغط على أي فاتورة لعرض تفاصيلها الكاملة</p>
+              
               {shiftInvoices.length === 0 ? (
                 <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>لا توجد فواتير مسجلة بعد في هذه الوردية.</p>
               ) : (
@@ -648,7 +725,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {shiftInvoices.map(inv => (
-                        <tr key={inv.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <tr key={inv.id} onClick={() => setSelectedInvoicePreview(inv)} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td style={{ padding: '12px', fontWeight: 'bold' }}>{inv.deviceName}</td>
                           <td style={{ padding: '12px' }}>{inv.type}</td>
                           <td style={{ padding: '12px', fontFamily: 'monospace' }}>{inv.timeSpent}</td>
@@ -770,11 +847,19 @@ export default function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>سعر السنجل (ج.م / ساعة)</label>
-                    <input type="number" value={settings.singlePrice} onChange={e=>setSettings({...settings, singlePrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+                    <input type="number" value={settings.singlePrice} onChange={async e=>{
+                      const updated = {...settings, singlePrice: Number(e.target.value)};
+                      setSettings(updated);
+                      await setDoc(doc(db, "ps_settings", "general_settings"), updated);
+                    }} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>سعر الملتي (ج.م / ساعة)</label>
-                    <input type="number" value={settings.multiPrice} onChange={e=>setSettings({...settings, multiPrice: Number(e.target.value)})} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
+                    <input type="number" value={settings.multiPrice} onChange={async e=>{
+                      const updated = {...settings, multiPrice: Number(e.target.value)};
+                      setSettings(updated);
+                      await setDoc(doc(db, "ps_settings", "general_settings"), updated);
+                    }} style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
                   </div>
                 </div>
               </div>
@@ -814,7 +899,7 @@ export default function App() {
                           <option value="available">متاح</option>
                           <option value="maintenance">في الصيانة</option>
                         </select>
-                        <button onClick={() => handleUpdateDevice(d.id)} style={{ padding: '8px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ</button>
+                        <button onClick={() => handleUpdateDevice(d)} style={{ padding: '8px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ</button>
                         <button onClick={() => setEditingDeviceId(null)} style={{ padding: '8px 15px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
                       </div>
                     ) : (
@@ -841,6 +926,29 @@ export default function App() {
 
       </div>
 
+      {/* نافذة منبثقة (Modal) لإضافة منتج جديد */}
+      {showAddProductModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px' }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '400px', textAlign: 'right' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>➕ إضافة منتج جديد</h3>
+            <form onSubmit={handleAddNewProduct} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>اسم المنتج أو المشروب</label>
+                <input type="text" value={newProdName} onChange={e=>setNewProdName(e.target.value)} placeholder="مثال: عصير مانجو، كوفي..." style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '5px' }}>السعر (ج.م)</label>
+                <input type="number" value={newProdPrice} onChange={e=>setNewProdPrice(e.target.value)} placeholder="0" style={{ width: '100%', padding: '12px', background: '#020408', border: '1px solid rgba(56,189,248,0.3)', color: '#fff', borderRadius: '10px', outline: 'none' }} required />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ وإضافة ✅</button>
+                <button type="button" onClick={() => setShowAddProductModal(false)} style={{ padding: '12px 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* نافذة بدء جلسة */}
       {startingDeviceModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
@@ -866,7 +974,7 @@ export default function App() {
             <h3 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px' }}>إضافة منتج لـ {addingItemDevice.name}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
               {products.map(p => (
-                <button key={p.id} onClick={() => addProductToDevice(addingItemDevice.id, p)} style={{ padding: '12px', background: '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button key={p.id} onClick={() => addProductToDevice(addingItemDevice, p)} style={{ padding: '12px', background: '#020408', color: '#fff', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold' }}>
                   <span>{p.name}</span>
                   <span style={{ color: '#22c55e' }}>{p.price} ج.م</span>
                 </button>
@@ -877,9 +985,19 @@ export default function App() {
         </div>
       )}
 
-      {/* نافذة معاينة الفاتورة وإنهاء الحساب والدفع */}
+      {/* نافذة معاينة الفاتورة وإنهاء الحساب والدفع (مع دعم مفتاح Enter) */}
       {showPreviewModal && checkoutDevice && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px' }}>
+        <div 
+          tabIndex="0"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              finalizeCheckout();
+            }
+          }}
+          style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px', outline: 'none' }}
+          ref={(node) => node && node.focus()}
+        >
           <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>🧾 فاتورة الحساب النهائية</h3>
             
@@ -890,11 +1008,11 @@ export default function App() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span>وقت اللعب:</span>
-                <strong style={{ fontFamily: 'monospace' }}>{formatTime(checkoutDevice.seconds)}</strong>
+                <strong style={{ fontFamily: 'monospace' }}>{formatTime(getDeviceSeconds(checkoutDevice))}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span>تكلفة الوقت:</span>
-                <strong style={{ color: '#22c55e' }}>{Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</strong>
+                <strong style={{ color: '#22c55e' }}>{Math.round((getDeviceSeconds(checkoutDevice) / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice))} ج.م</strong>
               </div>
             </div>
 
@@ -927,14 +1045,78 @@ export default function App() {
             <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(34,197,94,0.3)' }}>
               <span style={{ fontSize: '14px', color: '#94a3b8' }}>المبلغ الإجمالي المستحق:</span>
               <div style={{ fontSize: '26px', fontWeight: '900', color: '#22c55e', marginTop: '5px' }}>
-                {Math.max(0, Math.round((checkoutDevice.seconds / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice)) + checkoutDevice.items.reduce((s, i) => s + (i.price * i.qty), 0) - (discountAmount !== '' ? Number(discountAmount) : 0))} ج.م
+                {Math.max(0, Math.round((getDeviceSeconds(checkoutDevice) / 3600) * (checkoutDevice.type === 'Single' ? settings.singlePrice : settings.multiPrice)) + checkoutDevice.items.reduce((s, i) => s + (i.price * i.qty), 0) - (discountAmount !== '' ? Number(discountAmount) : 0))} ج.م
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد الدفع وإغلاق الفاتورة ✅</button>
+              <button onClick={finalizeCheckout} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>تأكيد الدفع وإغلاق الفاتورة (Enter) ✅</button>
               <button onClick={() => setShowPreviewModal(false)} style={{ padding: '12px 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إلغاء</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* نافذة منبثقة لمعاينة تفاصيل الفاتورة عند النقر عليها في جدول الوردية */}
+      {selectedInvoicePreview && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(3,5,10,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100, padding: '20px' }}>
+          <div className="neon-card" style={{ padding: '30px', borderRadius: '20px', width: '100%', maxWidth: '450px', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#38bdf8', marginBottom: '15px', textAlign: 'center' }}>📄 تفاصيل الفاتورة</h3>
+
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>الجهاز / الصنف:</span>
+                <strong>{selectedInvoicePreview.deviceName}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>نوع اللعب:</span>
+                <strong>{selectedInvoicePreview.type}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>وقت اللعب المستغرق:</span>
+                <strong style={{ fontFamily: 'monospace' }}>{selectedInvoicePreview.timeSpent}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>تكلفة الوقت:</span>
+                <strong style={{ color: '#22c55e' }}>{selectedInvoicePreview.timeCost || 0} ج.م</strong>
+              </div>
+            </div>
+
+            {selectedInvoicePreview.items && selectedInvoicePreview.items.length > 0 && (
+              <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                <h4 style={{ fontSize: '14px', color: '#38bdf8', marginBottom: '8px' }}>المشاريب والطلبات المضافة:</h4>
+                {selectedInvoicePreview.items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+                    <span>{item.name} (×{item.qty})</span>
+                    <span>{item.price * item.qty} ج.م</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>الخصم:</span>
+                <strong style={{ color: '#ef4444' }}>{selectedInvoicePreview.discount || 0} ج.م</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>طريقة الدفع:</span>
+                <strong>{selectedInvoicePreview.paymentMethod}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>وقت إصدار الفاتورة:</span>
+                <span style={{ color: '#94a3b8' }}>{selectedInvoicePreview.time}</span>
+              </div>
+            </div>
+
+            <div style={{ background: '#020408', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(34,197,94,0.3)' }}>
+              <span style={{ fontSize: '14px', color: '#94a3b8' }}>الإجمالي المدفوع:</span>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#22c55e', marginTop: '5px' }}>
+                {selectedInvoicePreview.total} ج.م
+              </div>
+            </div>
+
+            <button onClick={() => setSelectedInvoicePreview(null)} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>إغلاق النافذة</button>
           </div>
         </div>
       )}
